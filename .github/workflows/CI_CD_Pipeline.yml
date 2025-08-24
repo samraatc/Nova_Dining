@@ -1,0 +1,124 @@
+name: CI_CD_Pipeline Test
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  CI_push:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    environment: Production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with: 
+          node-version: '21'
+
+      - name: Install dependencies
+        run: npm install
+
+
+      - name: Create .env file
+        run: |
+          echo "VITE_API_URL=${{ secrets.BACKEND_API }}" > .env
+        working-directory: frontend
+
+
+      - name: Build project
+        run: npm run build
+
+      - name: list all files
+        run: |
+          ls -la 
+          cat .env
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: frontend/dist/   # change if your build folder is Deploy instead
+
+
+      - name: list all files
+        run: ls -la 
+
+  CD_Push:
+    needs: CI_push
+    if: github.event_name == 'push' && needs.CI_push.result == 'success'
+    runs-on: ubuntu-latest
+    environment: Production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '21'
+
+      - name: install dependencies
+        run: npm install
+        working-directory: frontend
+
+      - name: install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: ./frontend/dist/   # same as upload path
+
+      - name: Verify build files
+        run: ls -la ./frontend/dist
+
+      # - name: Deploying to Vercel
+      #   run: |
+      #     echo "🚀 Deploying the project"
+      #     vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} --confirm --name=CI-CD-Production-Test
+
+      - name: Deploying to Vercel
+        run: |
+         echo "🚀 Deploying the project"
+        #  vercel deploy --prebuilt --prod --yes --token=${{ secrets.VERCEL_TOKEN }} --name=my-portfolio-prod
+
+
+
+        # env:
+        #   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        #   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        #   VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+        
+
+
+  Deployment_failed:
+    needs: CD_Push
+    if: github.event_name == 'push' && needs.CD_Push.result == 'failure'
+    runs-on: ubuntu-latest
+    environment: Production
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Notify failure
+        run: |
+          echo "🚨 Deployment failed"

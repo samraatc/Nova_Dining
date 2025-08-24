@@ -1,0 +1,79 @@
+.featured-products {
+  padding: 80px 20px;
+  background: linear-gradient(135deg, #fdfbfb, #ebedee);
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+.section-title {
+  font-size: 40px;
+  font-weight: 700;
+  margin-bottom: 50px;
+  color: #111;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 30px;
+  max-width: 1200px;
+  /* border-radius: 20px; */
+  margin: 0 auto;
+}
+
+.product-card {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(15px);
+  border-radius: 20px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* pushes price to bottom */
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.product-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.15);
+}
+
+.product-card img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 14px;
+  margin-bottom: 20px;
+}
+
+.product-card h3 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #222;
+}
+
+.product-card p {
+  font-size: 14px;
+  color: #444;
+  margin-bottom: auto; /* pushes price down */
+  line-height: 1.5;
+}
+
+.product-card .price {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111;
+  margin-top: 20px;
+  background: linear-gradient(135deg, #ff6f61, #ff9472);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 30px;
+  box-shadow: 0 4px 15px rgba(255, 111, 97, 0.4);
+  align-self: center;
+}
