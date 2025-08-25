@@ -19,9 +19,9 @@ const port = process.env.PORT || 5000;
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
-  'https://novadining.netlify.app/',
-  'https://novadining001.netlify.app/',
-  'https://adminnovadining.netlify.app/',
+  'https://novadining.netlify.app',
+  'https://novadining001.netlify.app',
+  'https://adminnovadining.netlify.app',
   ...(process.env.FRONTEND_URLS?.split(',') || []), // optional extra URLs from .env
 ];
 
