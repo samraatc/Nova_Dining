@@ -1,5 +1,6 @@
 // Base URL for the live server
-export const BASE_URL = 'https://api.fortune-india.co.in';
+export const BASE_URL = 'https://nova-dining.onrender.com';
+// const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Food related API endpoints
 export const FOOD_API = {
