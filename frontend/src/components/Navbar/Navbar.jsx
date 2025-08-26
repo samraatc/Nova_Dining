@@ -104,6 +104,7 @@ const Navbar = ({ setShowLogin }) => {
         isOpen={showSearchPopup} 
         onClose={() => setShowSearchPopup(false)} 
       />
+      
     </div>
   );
 };

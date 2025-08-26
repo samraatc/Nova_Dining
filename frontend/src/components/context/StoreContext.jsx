@@ -118,18 +118,67 @@ const StoreContextProvider = (props) => {
 
     useEffect(() => {
         fetchFoodList();
+        const guestCartRaw = localStorage.getItem('guest_cart');
+        if (!token && guestCartRaw) {
+            try {
+                const guestCart = JSON.parse(guestCartRaw) || {};
+                setCartItems(guestCart);
+            } catch (e) {
+                console.error('Failed to parse guest cart');
+            }
+        }
         if (token) {
-            loadCartData();
+            const mergeGuestCart = async () => {
+                try {
+                    const guestCartRawLocal = localStorage.getItem('guest_cart');
+                    if (guestCartRawLocal) {
+                        const guestCart = JSON.parse(guestCartRawLocal) || {};
+                        const entries = Object.entries(guestCart);
+                        if (entries.length > 0) {
+                            for (const [itemId, quantity] of entries) {
+                                if (quantity > 0) {
+                                    await api.post(`${Globalapi.CART_ADD}`, { itemId, quantity });
+                                }
+                            }
+                            localStorage.removeItem('guest_cart');
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to merge guest cart on login', e);
+                } finally {
+                    loadCartData();
+                }
+            };
+            mergeGuestCart();
         }
     }, [token]);
 
     useEffect(() => {
         if (token) {
             localStorage.setItem('token', token);
+            // When logged in, keep guest cart cleared to avoid divergence
+            localStorage.removeItem('guest_cart');
         } else {
             localStorage.removeItem('token');
+            // Persist cart for guests
+            try {
+                localStorage.setItem('guest_cart', JSON.stringify(cartItems));
+            } catch (e) {
+                // ignore
+            }
         }
     }, [token]);
+
+    // Persist guest cart on changes when not logged in
+    useEffect(() => {
+        if (!token) {
+            try {
+                localStorage.setItem('guest_cart', JSON.stringify(cartItems));
+            } catch (e) {
+                // ignore
+            }
+        }
+    }, [cartItems, token]);
 
     const clearCart = async () => {
         setCartItems({});

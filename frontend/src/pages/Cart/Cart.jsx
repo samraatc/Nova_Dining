@@ -3,16 +3,23 @@ import './Cart.css';
 import { StoreContext } from '../../components/context/StoreContext';
 import { useNavigate } from 'react-router-dom';
 
-const Cart = () => {
-  const { cartItems, food_list, removeFromCart, getTotalCartAmount, url } = useContext(StoreContext);
+const Cart = ({ setShowLogin }) => {
+  const { 
+    cartItems, 
+    food_list, 
+    removeFromCart, 
+    getTotalCartAmount, 
+    url, 
+    token,
+    addToCart  // Make sure this function is imported from context
+  } = useContext(StoreContext);
+  
   const navigate = useNavigate();
 
-  // ✅ Corrected shipping calculation per product
   const calculateShippingForProduct = (quantity) => {
     return 550 + (quantity - 1) * 55;
   };
 
-  // Calculate total shipping for all items
   const getTotalShipping = useMemo(() => {
     let totalShipping = 0;
     for (const itemId in cartItems) {
@@ -22,7 +29,6 @@ const Cart = () => {
     return totalShipping;
   }, [cartItems]);
 
-  // Calculate total amount including shipping
   const getTotalWithShipping = useMemo(() => {
     return getTotalCartAmount() + getTotalShipping;
   }, [getTotalCartAmount, getTotalShipping]);
@@ -37,7 +43,7 @@ const Cart = () => {
           <p>Quantity</p>
           <p>Total</p>
           <p>Shipping</p>
-          <p>Remove</p>
+          <p>Actions</p>
         </div>
         <br />
         <hr />
@@ -48,13 +54,47 @@ const Cart = () => {
             return (
               <div key={item._id}>
                 <div className="cart-items-title cart-items-item">
-                  <img src={url + '/images/' + item.image}  />
+                  <img 
+                    src={url + '/images/' + item.image} 
+                    alt={item.name}
+                    onError={(e) => {
+                      e.target.src = '/placeholder-food.jpg';
+                      e.target.onerror = null;
+                    }}
+                  />
                   <p>{item.name}</p>
                   <p>₹{item.price.toLocaleString()}</p>
-                  <p>{cartItems[item._id]}</p>
+                  <div className="quantity-controls">
+                    <button 
+                      className="quantity-btn minus" 
+                      onClick={() => removeFromCart(item._id)}
+                      disabled={cartItems[item._id] <= 1}
+                    >
+                      -
+                    </button>
+                    <span className="quantity-display">{cartItems[item._id]}</span>
+                    <button 
+                      className="quantity-btn plus" 
+                      onClick={() => addToCart(item._id, 1)}  // Fixed: Add this onClick handler
+                    >
+                      +
+                    </button>
+                  </div>
                   <p>₹{(item.price * cartItems[item._id]).toLocaleString()}</p>
                   <p>₹{productShipping.toLocaleString()}</p>
-                  <p onClick={() => removeFromCart(item._id)} className='cross'>x</p>
+                  <button 
+                    onClick={() => {
+                      // Remove all quantity at once
+                      const quantity = cartItems[item._id];
+                      for(let i = 0; i < quantity; i++) {
+                        removeFromCart(item._id);
+                      }
+                    }} 
+                    className='remove-btn'
+                    title="Remove item"
+                  >
+                    🗑️
+                  </button>
                 </div>
                 <hr />
               </div>
@@ -83,44 +123,22 @@ const Cart = () => {
             </div> 
           </div>
           <button 
-            onClick={() => navigate('/order')}
+            onClick={() => {
+              if (!token) {
+                setShowLogin?.(true);
+                return;
+              }
+              navigate('/order');
+            }}
             disabled={getTotalCartAmount() === 0}
             className={getTotalCartAmount() === 0 ? 'disabled-btn' : ''}
           >
             PROCEED TO CHECKOUT
           </button>
         </div>
-        {/* <div className="cart-promocode">
-          <div>
-            <p>If you have a promo code, enter it here</p>
-            <div className='cart-promocode-input'>
-              <input type="text" placeholder='Promo Code' />
-              <button>Submit</button>
-            </div>
-          </div>
-        </div> */}
       </div>
-      
-      {/* Price Breakdown Section */}
-      {/* <div className="cart-price-breakdown">
-        <h3>Price Breakdown</h3>
-        <div className="breakdown-details">
-          <div className="breakdown-row">
-            <span>Product Price:</span>
-            <span>₹{getTotalCartAmount().toLocaleString()}</span>
-          </div>
-          <div className="breakdown-row">
-            <span>Shipping & Packaging:</span>
-            <span>₹{getTotalShipping.toLocaleString()}</span>
-          </div>
-          <div className="breakdown-row total-row">
-            <span><b>Total:</b></span>
-            <span><b>₹{getTotalWithShipping.toLocaleString()}</b></span>
-          </div>
-        </div>
-      </div> */}
     </div>
   )
 }
 
-export default Cart;
+export default Cart;

@@ -11,6 +11,8 @@ import orderRouter from './routes/orderRoute.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import subcategoryRoutes from './routes/subcategoryRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
+import adminRouter from './routes/adminRoute.js';
+import backupRouter from './routes/backupRoute.js';
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -19,8 +21,9 @@ const port = process.env.PORT || 5000;
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
-  'https://fortune-india.netlify.app',
-  'https://fortune-india.co.in',
+  'https://novadining.netlify.app/',
+  'https://novadining001.netlify.app/',
+  'https://adminnovadining.netlify.app/',
   ...(process.env.FRONTEND_URLS?.split(',') || []), // optional extra URLs from .env
 ];
 
@@ -60,6 +63,8 @@ app.use('/api/order', orderRouter);
 app.use('/api/category', categoryRoutes);
 app.use('/api/subcategory', subcategoryRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/admin', adminRouter);
+app.use('/api/backup', backupRouter);
 
 // ✅ Health Check Route
 app.get('/', (req, res) => {

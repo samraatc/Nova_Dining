@@ -359,6 +359,37 @@ input {
   }
 }
 
+/* Delivery method toggle buttons */
+.delivery-toggle {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.delivery-btn {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #1f2937;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.delivery-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(31,41,55,0.08);
+  background: #fffbf7;
+}
+
+.delivery-btn.active {
+  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 6px 16px rgba(255, 107, 53, 0.35);
+}
+
 @media (max-width: 768px) {
   .place-order {
     margin: 30px 0;

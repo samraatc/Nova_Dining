@@ -22,6 +22,8 @@ const PlaceOrder = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [deliveryMethod, setDeliveryMethod] = useState('delivery'); // 'delivery' | 'dinein'
+  const [tableNumber, setTableNumber] = useState('');
   const navigate = useNavigate();
 
   // Calculate shipping per product based on quantity
@@ -31,13 +33,14 @@ const PlaceOrder = () => {
 
   // Calculate total shipping for all items
   const totalShipping = useMemo(() => {
+    if (deliveryMethod === 'dinein') return 0;
     let total = 0;
     for (const itemId in cartItems) {
       const qty = cartItems[itemId];
       total += calculateShippingForProduct(qty);
     }
     return total;
-  }, [cartItems]);
+  }, [cartItems, deliveryMethod]);
 
   // Calculate total amount including shipping
   const totalAmount = useMemo(() => {
@@ -68,9 +71,15 @@ const PlaceOrder = () => {
     setLoading(true);
 
     try {
-      // Validate phone number
-      if (!/^\d{10}$/.test(data.phone)) {
-        throw new Error('Please enter a valid 10-digit phone number');
+      // Validate based on delivery method
+      if (deliveryMethod === 'delivery') {
+        if (!/^\d{10}$/.test(data.phone)) {
+          throw new Error('Please enter a valid 10-digit phone number');
+        }
+      } else {
+        if (!tableNumber.trim()) {
+          throw new Error('Please enter your table number for dine-in booking');
+        }
       }
 
       // Check if order has too many items
@@ -95,7 +104,9 @@ const PlaceOrder = () => {
         items: orderItems,
         amount: getTotalCartAmount(),
         shippingCharge: totalShipping,
-        totalAmount: totalAmount
+        totalAmount: totalAmount,
+        deliveryMethod,
+        tableNumber: deliveryMethod === 'dinein' ? tableNumber : undefined
       };
 
       console.log('Order data size:', JSON.stringify(orderData).length);
@@ -144,7 +155,9 @@ const PlaceOrder = () => {
               })),
               amount: getTotalCartAmount(),
               shippingCharge: totalShipping,
-              totalAmount: totalAmount
+              totalAmount: totalAmount,
+              deliveryMethod,
+              tableNumber: deliveryMethod === 'dinein' ? tableNumber : undefined
             };
             
             try {
@@ -163,7 +176,9 @@ const PlaceOrder = () => {
                   })),
                   amount: getTotalCartAmount(),
                   shippingCharge: totalShipping,
-                  totalAmount: totalAmount
+                  totalAmount: totalAmount,
+                  deliveryMethod,
+                  tableNumber: deliveryMethod === 'dinein' ? tableNumber : undefined
                 };
                 
                 orderResponse = await axios.post(`${url}/api/order/place`, ultraMinimalOrderData, {
@@ -304,6 +319,32 @@ const PlaceOrder = () => {
     <form onSubmit={placeOrder} className='place-order'>
       <div className="place-order-left">
         <p className="title">Delivery Information</p>
+        <div className="delivery-toggle">
+          <button
+            type="button"
+            className={`delivery-btn ${deliveryMethod === 'delivery' ? 'active' : ''}`}
+            onClick={() => setDeliveryMethod('delivery')}
+          >
+            🏠 Home Delivery
+          </button>
+          <button
+            type="button"
+            className={`delivery-btn ${deliveryMethod === 'dinein' ? 'active' : ''}`}
+            onClick={() => setDeliveryMethod('dinein')}
+          >
+            🍽️ Book Table
+          </button>
+        </div>
+        {deliveryMethod === 'dinein' && (
+          <input 
+            required 
+            name='tableNumber' 
+            onChange={(e) => setTableNumber(e.target.value)} 
+            value={tableNumber} 
+            type="text" 
+            placeholder='Table Number'
+          />
+        )}
         <div className="multi-fields">
           <input 
             required 
@@ -330,62 +371,72 @@ const PlaceOrder = () => {
           type="email" 
           placeholder='Email address'
         />
-        <input 
-          required 
-          name='street' 
-          onChange={onChangeHandler} 
-          value={data.street} 
-          type="text" 
-          placeholder='Street'
-        />
+        {deliveryMethod === 'delivery' && (
+          <input 
+            required 
+            name='street' 
+            onChange={onChangeHandler} 
+            value={data.street} 
+            type="text" 
+            placeholder='Street'
+          />
+        )}
         <div className="multi-fields">
-          <input 
-            required 
-            name='city' 
-            onChange={onChangeHandler} 
-            value={data.city} 
-            type="text" 
-            placeholder='City'
-          />
-          <input 
-            required 
-            name='state' 
-            onChange={onChangeHandler} 
-            value={data.state} 
-            type="text" 
-            placeholder='State'
-          />
+          {deliveryMethod === 'delivery' && (
+            <>
+              <input 
+                required 
+                name='city' 
+                onChange={onChangeHandler} 
+                value={data.city} 
+                type="text" 
+                placeholder='City'
+              />
+              <input 
+                required 
+                name='state' 
+                onChange={onChangeHandler} 
+                value={data.state} 
+                type="text" 
+                placeholder='State'
+              />
+            </>
+          )}
         </div>
         <div className="multi-fields">
-          <input 
-            required 
-            name='zipcode' 
-            onChange={onChangeHandler} 
-            value={data.zipcode} 
-            type="text" 
-            placeholder='Zip code'
-            pattern="[0-9]{6}"
-            title="6-digit zip code"
-          />
-          <input 
-            required 
-            name='country' 
-            onChange={onChangeHandler} 
-            value={data.country} 
-            type="text" 
-            placeholder='Country' 
-            readOnly 
-          />
+          {deliveryMethod === 'delivery' && (
+            <>
+              <input 
+                required 
+                name='zipcode' 
+                onChange={onChangeHandler} 
+                value={data.zipcode} 
+                type="text" 
+                placeholder='Zip code'
+                pattern="[0-9]{6}"
+                title="6-digit zip code"
+              />
+              <input 
+                required 
+                name='country' 
+                onChange={onChangeHandler} 
+                value={data.country} 
+                type="text" 
+                placeholder='Country' 
+                readOnly 
+              />
+            </>
+          )}
         </div>
         <input 
-          required 
+          required={deliveryMethod === 'delivery'} 
           name='phone' 
           onChange={onChangeHandler} 
           value={data.phone} 
           type="tel" 
           placeholder='Phone' 
-          pattern="[0-9]{10}"
-          title="10-digit phone number"
+          pattern={deliveryMethod === 'delivery' ? "[0-9]{10}" : undefined}
+          title={deliveryMethod === 'delivery' ? "10-digit phone number" : undefined}
         />
       </div>
       <div className="place-order-right">
@@ -399,7 +450,7 @@ const PlaceOrder = () => {
             <hr />
             <div className="cart-total-detail">
               <p>Shipping & Packaging</p>
-              <p>₹{totalShipping.toLocaleString('en-IN')}</p>
+              <p>{deliveryMethod === 'dinein' ? '— (Dine-in)' : `₹${totalShipping.toLocaleString('en-IN')}`}</p>
             </div>
             <hr />
             <div className="cart-total-detail">
@@ -408,7 +459,11 @@ const PlaceOrder = () => {
             </div>
           </div>
           <div className="shipping-notice">
-            <p>Shipping calculation: ₹550 base + ₹55 per additional item</p>
+            {deliveryMethod === 'delivery' ? (
+              <p>Shipping calculation: ₹550 base + ₹55 per additional item</p>
+            ) : (
+              <p>Dine-in booking selected. No shipping applied.</p>
+            )}
           </div>
           <button 
             type='submit' 
