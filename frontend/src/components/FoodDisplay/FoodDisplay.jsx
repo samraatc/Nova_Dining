@@ -15,7 +15,7 @@ const FoodDisplay = ({ category, subcategory }) => {
     const fetchValidSubcategories = async () => {
       if (category && category._id && category._id !== 'All') {
         try {
-          const response = await axios.get(`http://localhost:5000/api/subcategory/by-category/${category._id}`);
+          const response = await axios.get(`https://nova-dining.onrender.com/api/subcategory/by-category/${category._id}`);
           setValidSubcategories(response.data.map(sub => sub._id));
         } catch (error) {
           console.error('Error fetching subcategories:', error);

@@ -12,7 +12,8 @@ const StoreContextProvider = (props) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [showSearchResults, setShowSearchResults] = useState(false);
-    const url = "https://api.fortune-india.co.in";
+    const url = "https://nova-dining.onrender.com";
+    // const url = "http://localhost:5000";
 
     // Create axios instance
     const api = axios.create({

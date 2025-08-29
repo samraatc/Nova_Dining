@@ -16,7 +16,7 @@ const Settings = () => {
 
     const fetchBackups = async () => {
         try {
-            const response = await fetch('http://localhost:5000/api/backup/list', {
+            const response = await fetch('https://nova-dining.onrender.com/api/backup/list', {
                 headers: {
                     'Authorization': `Bearer ${adminToken}`
                 }
@@ -34,7 +34,7 @@ const Settings = () => {
     const createBackup = async () => {
         setCreatingBackup(true);
         try {
-            const response = await fetch('http://localhost:5000/api/backup/create', {
+            const response = await fetch('https://nova-dining.onrender.com/api/backup/create', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${adminToken}`
@@ -63,7 +63,7 @@ const Settings = () => {
 
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:5000/api/backup/restore', {
+            const response = await fetch('https://nova-dining.onrender.com/api/backup/restore', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -92,7 +92,7 @@ const Settings = () => {
         }
 
         try {
-            const response = await fetch(`http://localhost:5000/api/backup/delete/${fileName}`, {
+            const response = await fetch(`https://nova-dining.onrender.com/api/backup/delete/${fileName}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${adminToken}`

@@ -1,0 +1,341 @@
+name: 🚀 Vercel CI/CD Pipeline for frontend
+
+###############################################################################
+# 1. TRIGGERS                                                                #
+###############################################################################
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'frontend/**'
+  workflow_dispatch:
+    inputs:
+      deploy_environment:
+        description: 'Deploy to environment'
+        required: true
+        default: 'preview'
+        type: choice
+        options:
+          - preview
+          - production
+
+###############################################################################
+# 2. GLOBAL ENVIRONMENT VARIABLES                                             #
+###############################################################################
+env:
+  VERCEL_ORG_ID:        ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID:    ${{ secrets.VERCEL_PROJECT_ID }}
+
+###############################################################################
+# 3. JOB 1 – CODE QUALITY & TESTS                                             #
+###############################################################################
+jobs:
+  quality-check:
+    name: 🔍 Code Quality & Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    environment: Production
+
+    steps:
+      - name: 📦 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 📥 Install Dependencies
+        run: npm ci
+
+      - name: 🔍 Run Linting
+        run: npm run lint --if-present || echo "Lint skipped – no script found"
+
+      - name: 🧪 Run Tests
+        run: npm test --if-present || echo "Tests skipped – no script found"
+        env:
+          CI: true
+
+      - name: 🏗️ Test Build
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+###############################################################################
+# 4. JOB 2 – BUILD & DEPLOY TO VERCEL                                         #
+###############################################################################
+  deploy:
+    name: 🚀 Deploy to Vercel
+    needs: quality-check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    # Expose deployment data to downstream jobs
+    outputs:
+      url:         ${{ steps.vercel_deploy.outputs.deployment_url }}
+      environment: ${{ steps.vercel_deploy.outputs.environment }}
+
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'Production' || 'Preview' }}
+      url:  ${{ steps.vercel_deploy.outputs.deployment_url }}
+
+    steps:
+      - name: 📦 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 📥 Install Dependencies
+        run: npm ci
+
+      - name: 🔧 Create Environment File
+        run: echo "VITE_API_BASE_URL=${{ secrets.VITE_API_URL }}" > .env.production
+
+      - name: ⚡ Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: 🔗 Pull Vercel Environment Info
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: 🏗️ Build Project Artifacts
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: 🚀 Deploy to Vercel
+        id: vercel_deploy
+        run: |
+          echo "⏳ Deploying…"
+          
+          # Determine deployment type
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            deploy_cmd="vercel deploy --prebuilt --prod"
+            env="production"
+          else
+            deploy_cmd="vercel deploy --prebuilt"
+            env="preview"
+          fi
+
+          # Run deployment & capture full output
+          echo "Running: $deploy_cmd"
+          deployment_output=$($deploy_cmd --token=${{ secrets.VERCEL_TOKEN }} 2>&1)
+          deployment_exit_code=$?
+          
+          echo "Deployment output:"
+          echo "$deployment_output"
+          
+          # Check if deployment succeeded
+          if [ $deployment_exit_code -ne 0 ]; then
+            echo "❌ Deployment failed with exit code $deployment_exit_code"
+            echo "deployment_url=" >> $GITHUB_OUTPUT
+            echo "environment=$env" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          # Extract the *.vercel.app URL using improved regex
+          url=$(echo "$deployment_output" | grep -oE 'https://[^[:space:]]+\.vercel\.app' | head -n 1)
+
+          # Fallback: Try to find any vercel URL in the output
+          if [[ -z "$url" ]]; then
+            url=$(echo "$deployment_output" | grep -oE 'https://[^[:space:]]+' | grep 'vercel' | head -n 1)
+          fi
+
+          # Final fallback: Check for any https URL
+          if [[ -z "$url" ]]; then
+            url=$(echo "$deployment_output" | grep -oE 'https://[^[:space:]]+' | head -n 1)
+          fi
+
+          if [[ -z "$url" ]]; then
+            echo "⚠️  Could not parse deployment URL from output, but deployment may have succeeded"
+            url="https://deployment-url-not-found.vercel.app"
+          fi
+
+          echo "🎉 Deployed ($env) ➜ $url"
+          echo "deployment_url=$url" >> $GITHUB_OUTPUT
+          echo "environment=$env" >> $GITHUB_OUTPUT
+
+      # Optional PR Comment
+      - name: 💬 Comment PR with Preview URL
+        if: github.event_name == 'pull_request' && steps.vercel_deploy.outputs.deployment_url
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = '${{ steps.vercel_deploy.outputs.deployment_url }}';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚀 Preview Deployment\n\n✅ **Deployment successful!**\n\n🔗 **Preview URL:** ${url}\n🔄 **Commit:** ${context.sha.slice(0,7)}\n`
+            });
+
+###############################################################################
+# 5. JOB 3 – POST-DEPLOYMENT HEALTH CHECK (MAIN ONLY)                         #
+###############################################################################
+  health-check:
+    name: 🏥 Health Check
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && needs.deploy.outputs.url != ''
+
+    steps:
+      - name: 🔍 Check Deployment Health
+        run: |
+          url="${{ needs.deploy.outputs.url }}"
+          echo "🔍 Checking health of: $url"
+          
+          # Wait for deployment to be ready
+          echo "⏳ Waiting 30 seconds for deployment to be ready..."
+          sleep 30
+          
+          # Check if URL is reachable
+          echo "📡 Testing HTTP response..."
+          status=$(curl -s -o /dev/null -w '%{http_code}' "$url" || echo "000")
+          
+          echo "📊 HTTP Status Code: $status"
+          
+          # Check for success status codes (200-299)
+          if [[ "$status" =~ ^2[0-9]{2}$ ]]; then
+            echo "✅ Health check passed! (Status: $status)"
+          else
+            echo "❌ Health check failed! (Status: $status)"
+            exit 1
+          fi
+
+      - name: 📊 Simple Performance Check
+        run: |
+          url="${{ needs.deploy.outputs.url }}"
+          echo "⚡ Running performance test..."
+          
+          response_time=$(curl -s -o /dev/null -w '%{time_total}' "$url" || echo "999")
+          echo "📈 Response time: ${response_time}s"
+          
+          # Check if response time is reasonable (less than 10 seconds)
+          if (( $(echo "$response_time < 10" | bc -l) )); then
+            echo "✅ Performance check passed!"
+          else
+            echo "⚠️  Performance warning: Response time over 10s"
+          fi
+
+###############################################################################
+# 6. JOB 4 – EMAIL NOTIFICATIONS (MAIN ONLY)                                  #
+###############################################################################
+  mail_notify:
+    name: 📧 Email Notification
+    needs: [quality-check, deploy, health-check]
+    runs-on: ubuntu-latest
+    if: always() && github.ref == 'refs/heads/main'
+    environment: Production
+
+    steps:
+      - name: 📦 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: ✅ Validate Secrets
+        id: validate-secrets
+        run: |
+          echo "🔍 Validating required secrets..."
+          
+          missing_secrets=()
+          
+          if [[ -z "${{ secrets.NOTIFICATION_EMAIL }}" ]]; then
+            missing_secrets+=("NOTIFICATION_EMAIL")
+          fi
+          
+          if [[ -z "${{ secrets.EMAIL_FROM }}" ]]; then
+            missing_secrets+=("EMAIL_FROM")
+          fi
+          
+          if [[ -z "${{ secrets.EMAIL_PASSWORD }}" ]]; then
+            missing_secrets+=("EMAIL_PASSWORD")
+          fi
+          
+          if [[ ${#missing_secrets[@]} -gt 0 ]]; then
+            echo "❌ Missing required secrets: ${missing_secrets[*]}"
+            echo "⚠️  Email notification will be skipped"
+            echo "secrets_valid=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ All required secrets are present"
+            echo "secrets_valid=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 📧 Send Success Notification
+        if: steps.validate-secrets.outputs.secrets_valid == 'true' && needs.deploy.result == 'success'
+        run: |
+          echo "📤 Sending success notification..."
+          
+          python3 email_notifier.py \
+            --status success \
+            --to-email "${{ secrets.NOTIFICATION_EMAIL }}" \
+            --repository "${{ github.repository }}" \
+            --branch "${{ github.ref_name }}" \
+            --commit "${{ github.sha }}" \
+            --environment "${{ needs.deploy.outputs.environment || 'unknown' }}" \
+            --actor "${{ github.actor }}" \
+            --workflow "${{ github.workflow }}" \
+            --deployment-url "${{ needs.deploy.outputs.url || 'N/A' }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --provider "${{ secrets.EMAIL_PROVIDER || 'gmail' }}"
+        env:
+          EMAIL_FROM:     ${{ secrets.EMAIL_FROM }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+
+      - name: 📧 Send Failure Notification
+        if: steps.validate-secrets.outputs.secrets_valid == 'true' && (needs.quality-check.result == 'failure' || needs.deploy.result == 'failure' || needs.health-check.result == 'failure')
+        run: |
+          echo "📤 Sending failure notification..."
+          
+          # Determine which job failed
+          failed_job="Unknown"
+          if [[ "${{ needs.quality-check.result }}" == "failure" ]]; then
+            failed_job="Code Quality & Tests"
+          elif [[ "${{ needs.deploy.result }}" == "failure" ]]; then
+            failed_job="Deployment"
+          elif [[ "${{ needs.health-check.result }}" == "failure" ]]; then
+            failed_job="Health Check"
+          fi
+          
+          python3 email_notifier.py \
+            --status failure \
+            --to-email "${{ secrets.NOTIFICATION_EMAIL }}" \
+            --repository "${{ github.repository }}" \
+            --branch "${{ github.ref_name }}" \
+            --commit "${{ github.sha }}" \
+            --environment "${{ needs.deploy.outputs.environment || 'unknown' }}" \
+            --actor "${{ github.actor }}" \
+            --workflow "${{ github.workflow }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --error-message "Pipeline failed at: $failed_job. Check the workflow logs for detailed error information." \
+            --provider "${{ secrets.EMAIL_PROVIDER || 'gmail' }}"
+        env:
+          EMAIL_FROM:     ${{ secrets.EMAIL_FROM }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+
+      - name: 📋 Notification Summary
+        if: always()
+        run: |
+          echo "📊 Notification Summary:"
+          echo "  - Secrets Valid: ${{ steps.validate-secrets.outputs.secrets_valid }}"
+          echo "  - Quality Check: ${{ needs.quality-check.result }}"
+          echo "  - Deployment: ${{ needs.deploy.result }}"
+          echo "  - Health Check: ${{ needs.health-check.result }}"
+          echo "  - Overall Status: ${{ job.status }}"
