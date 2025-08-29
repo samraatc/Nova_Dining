@@ -17,27 +17,10 @@ import backupRouter from './routes/backupRoute.js';
 const app = express();
 const port = process.env.PORT || 5000;
 
-// ✅ Allowed frontend URLs
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'https://novadining.netlify.app',
-  'https://novadining001.netlify.app',
-  'https://adminnovadining.netlify.app',
-  ...(process.env.FRONTEND_URLS?.split(',') || []), // optional extra URLs from .env
-];
-
-// ✅ CORS Middleware
+// ✅ CORS Middleware - Allow all origins with credentials
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // allow tools like Postman
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      } else {
-        return callback(new Error('Not allowed by CORS: ' + origin));
-      }
-    },
+    origin: true, // Reflects the request origin
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'token'],
     credentials: true,
